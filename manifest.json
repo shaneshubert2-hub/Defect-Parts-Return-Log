@@ -1,0 +1,16 @@
+{
+  "name": "Parts Return Log",
+  "short_name": "Parts Log",
+  "description": "Log defective auto parts and export them for manufacturer credit.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#EDE7DA",
+  "theme_color": "#3E4E5C",
+  "orientation": "any",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Parts Return Log</title>
+<meta name="description" content="Log defective auto parts and export them for manufacturer credit." />
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" href="icons/icon-192.png" />
+<link rel="apple-touch-icon" href="icons/icon-192.png" />
+<meta name="theme-color" content="#3E4E5C" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Parts Log" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --ink:#22252A; --paper:#EDE7DA; --paper-dark:#E0D8C7; --paper-darker:#D3C9B2;
+    --steel:#3E4E5C; --steel-light:#5E7285; --safety:#D9580A; --safety-dark:#B24A08;
+    --credit:#2F6B4F; --credit-bg:#E3ECE6; --line:#B9AD8F; --white:#FAF8F3; --paper-text:#4A4536;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    background:var(--paper); color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+  }
+  button, input, select{font-family:inherit;}
+  button{cursor:pointer;background:none;border:none;padding:0;color:inherit;}
+  .hidden{display:none !important;}
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  .display{font-family:'Oswald',sans-serif;}
+
+  header.app-header{background:var(--steel); padding:24px 20px 20px;}
+  .header-inner{max-width:900px;margin:0 auto;}
+  .brand{display:flex;align-items:center;gap:12px;}
+  .brand-icon{width:40px;height:40px;background:var(--safety);border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .brand-title{font-family:'Oswald',sans-serif;font-weight:600;letter-spacing:.06em;font-size:20px;color:var(--white);line-height:1;}
+  .brand-sub{color:var(--paper-dark);font-size:12px;margin-top:3px;}
+  .stats{display:flex;gap:16px;margin-top:20px;flex-wrap:wrap;}
+  .stat-num{font-family:'IBM Plex Mono',monospace;font-size:20px;color:var(--white);font-weight:600;}
+  .stat-label{font-size:10px;color:var(--paper-dark);text-transform:uppercase;letter-spacing:.05em;}
+  .stat-divider{width:1px;background:var(--steel-light);}
+
+  main{background:var(--white);min-height:60vh;border-top:1px solid var(--line);padding:24px 20px 48px;}
+  .main-inner{max-width:900px;margin:0 auto;}
+
+  .field{margin-bottom:14px;}
+  .field-label{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--steel-light);font-weight:600;display:block;margin-bottom:6px;}
+  .text-input, select.text-input{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:6px;font-size:14px;background:var(--white);color:var(--ink);}
+  .text-input.mono{font-family:'IBM Plex Mono',monospace;}
+
+  /* top add-manufacturer row */
+  .add-mfg-row{display:flex;align-items:center;gap:8px;margin-bottom:24px;flex-wrap:wrap;}
+  .add-mfg-btn{display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border:1px dashed var(--line);border-radius:6px;color:var(--steel-light);font-size:13px;font-weight:600;}
+  .add-mfg-inline{display:flex;gap:8px;align-items:center;}
+
+  .empty-state{text-align:center;padding:40px 0;color:var(--steel-light);}
+  .empty-state svg{margin:0 auto 12px;display:block;}
+
+  /* manufacturer sections */
+  .mfg-section{margin-bottom:32px;}
+  .mfg-header{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-bottom:12px;border-bottom:1px solid var(--line);margin-bottom:14px;}
+  .mfg-name-group{display:flex;align-items:center;gap:10px;min-width:0;}
+  .mfg-name{font-family:'Oswald',sans-serif;font-size:16px;font-weight:600;letter-spacing:.03em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .mfg-count{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--steel-light);background:var(--paper);padding:2px 8px;border-radius:999px;flex-shrink:0;}
+  .mfg-actions{display:flex;gap:6px;align-items:center;flex-shrink:0;}
+  .icon-btn{width:32px;height:32px;border-radius:6px;display:flex;align-items:center;justify-content:center;border:1px solid var(--line);color:var(--steel-light);flex-shrink:0;}
+  .icon-btn.primary{background:var(--safety);color:var(--white);border-color:var(--safety);}
+  .icon-btn.danger:active{color:var(--safety);}
+
+  /* inline add-part form */
+  .inline-form{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:16px;margin-bottom:16px;}
+  .inline-form-actions{display:flex;gap:8px;margin-top:6px;}
+  .btn-cancel{flex:1;padding:11px;border:1px solid var(--line);border-radius:6px;font-size:13px;font-weight:600;color:var(--steel-light);text-align:center;background:var(--white);}
+  .btn-add-part{flex:2;padding:11px;background:var(--safety);color:var(--white);border-radius:6px;font-family:'Oswald',sans-serif;font-size:13px;letter-spacing:.05em;font-weight:600;display:flex;align-items:center;justify-content:center;gap:6px;}
+  .btn-add-part:disabled{opacity:.5;}
+
+  .btn-dashed{display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border:1px dashed var(--line);border-radius:6px;color:var(--steel-light);font-size:13px;}
+  .photo-thumb{position:relative;display:inline-block;}
+  .photo-thumb img{width:88px;height:88px;object-fit:cover;border-radius:6px;border:1px solid var(--line);display:block;}
+  .photo-remove{position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:999px;background:var(--ink);color:var(--white);display:flex;align-items:center;justify-content:center;}
+
+  .log-grid{display:flex;flex-direction:column;gap:10px;}
+  @media(min-width:640px){ .log-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;} }
+  @media(min-width:1024px){ .log-grid{grid-template-columns:1fr 1fr 1fr;} }
+
+  .ticket{display:flex;background:var(--paper);border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+  .ticket-holes{background:var(--paper-darker);width:14px;display:flex;flex-direction:column;justify-content:space-around;padding:12px 0;}
+  .ticket-hole{width:8px;height:8px;border-radius:999px;background:var(--white);border:1px solid var(--line);margin:0 auto 6px;}
+  .ticket-body{flex:1;padding:12px;border-left:1px dashed var(--line);min-width:0;}
+  .ticket-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}
+  .ticket-mid{display:flex;gap:12px;align-items:flex-start;}
+  .ticket-mid img{width:52px;height:52px;object-fit:cover;border-radius:5px;border:1px solid var(--line);flex-shrink:0;}
+  .ticket-part{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;}
+  .ticket-qty{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--steel-light);margin-left:8px;}
+  .ticket-tags{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;}
+  .ticket-tag{font-size:11px;color:var(--steel-light);background:var(--white);padding:1px 6px;border-radius:4px;border:1px solid var(--line);}
+  .ticket-date{font-size:11px;color:var(--steel-light);}
+  .ticket-del{color:var(--steel-light);}
+  .no-parts{font-size:13px;color:var(--steel-light);padding:16px 0;text-align:center;border:1px dashed var(--line);border-radius:8px;}
+
+  .install-banner{display:none;align-items:center;justify-content:space-between;gap:12px;background:var(--credit-bg);color:var(--credit);border-radius:8px;padding:10px 14px;margin:0 auto 16px;max-width:900px;font-size:13px;}
+  .install-banner.show{display:flex;}
+  .install-banner button.install-btn{background:var(--credit);color:var(--white);padding:6px 12px;border-radius:6px;font-weight:600;font-size:12px;white-space:nowrap;}
+  .install-banner button.dismiss{color:var(--credit);font-size:16px;line-height:1;padding:0 4px;}
+</style>
+</head>
+<body>
+
+<div id="install-banner" class="install-banner">
+  <span>Install this app for one-tap access — works offline too.</span>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <button class="install-btn" id="install-btn">Install</button>
+    <button class="dismiss" id="dismiss-btn">✕</button>
+  </div>
+</div>
+
+<header class="app-header">
+  <div class="header-inner">
+    <div class="brand">
+      <div class="brand-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FAF8F3" stroke-width="2"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></svg>
+      </div>
+      <div>
+        <div class="brand-title">PARTS RETURN LOG</div>
+        <div class="brand-sub">Defective parts → manufacturer credit</div>
+      </div>
+    </div>
+    <div class="stats">
+      <div><div class="stat-num" id="stat-total">0</div><div class="stat-label">Total logged</div></div>
+      <div class="stat-divider"></div>
+      <div><div class="stat-num" id="stat-month">0</div><div class="stat-label">This month</div></div>
+      <div class="stat-divider"></div>
+      <div><div class="stat-num" id="stat-mfg">0</div><div class="stat-label">Manufacturers</div></div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="main-inner">
+
+    <div class="add-mfg-row" id="add-mfg-row">
+      <button class="add-mfg-btn" id="add-mfg-btn">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add manufacturer
+      </button>
+    </div>
+
+    <div id="empty-state-global" class="empty-state hidden">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#D9580A" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <div class="display" style="font-size:16px;color:var(--ink);">No manufacturers yet</div>
+      <p style="font-size:13px;margin-top:6px;">Add the manufacturers you submit claims to — each one gets its own list with a "+" to log parts.</p>
+    </div>
+
+    <div id="mfg-sections"></div>
+
+  </div>
+</main>
+
+<script>
+(function(){
+  "use strict";
+
+  var REASONS = ["Premature failure","Manufacturing defect","DOA / dead on arrival","Cracked or broken housing",
+    "Electrical failure","Leaking","Incorrect fit","Broken","Dented","Scratched","Rust","Bad plug","No display",
+    "Bad wire","Misboxed","Bent","Damaged","Other"];
+
+  var STORE_KEY_MFG = "prl_manufacturers";
+  var STORE_KEY_CLAIMS = "prl_claims";
+
+  function loadJSON(key, fallback){
+    try{ var raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; }
+    catch(e){ return fallback; }
+  }
+  function saveJSON(key, val){
+    try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){ console.error("save failed", e); }
+  }
+  function uid(){ return "id-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2,9); }
+  function esc(v){ var d = document.createElement("div"); d.textContent = v == null ? "" : String(v); return d.innerHTML; }
+
+  var state = {
+    manufacturers: loadJSON(STORE_KEY_MFG, []),
+    claims: loadJSON(STORE_KEY_CLAIMS, []),
+    openMfgId: null,   // which manufacturer's add-part form is open
+    formPhoto: null,
+    addingMfg: false
+  };
+
+  function persistMfg(){ saveJSON(STORE_KEY_MFG, state.manufacturers); }
+  function persistClaims(){ saveJSON(STORE_KEY_CLAIMS, state.claims); }
+
+  function mfgName(id){
+    var m = state.manufacturers.find(function(m){ return m.id === id; });
+    return m ? m.name : "Unknown";
+  }
+  function claimsFor(id){ return state.claims.filter(function(c){ return c.manufacturerId === id; }); }
+
+  // ---------- Stats ----------
+  function renderStats(){
+    document.getElementById("stat-total").textContent = state.claims.length;
+    var ym = new Date().toISOString().slice(0,7);
+    document.getElementById("stat-month").textContent = state.claims.filter(function(c){ return c.date.indexOf(ym) === 0; }).length;
+    document.getElementById("stat-mfg").textContent = state.manufacturers.length;
+  }
+
+  // ---------- Add manufacturer (top row) ----------
+  var addMfgRow = document.getElementById("add-mfg-row");
+  function renderAddMfgRow(){
+    if(!state.addingMfg){
+      addMfgRow.innerHTML = "";
+      var btn = document.createElement("button");
+      btn.className = "add-mfg-btn";
+      btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add manufacturer';
+      btn.addEventListener("click", function(){ state.addingMfg = true; renderAddMfgRow(); });
+      addMfgRow.appendChild(btn);
+    } else {
+      addMfgRow.innerHTML = "";
+      var wrap = document.createElement("div");
+      wrap.className = "add-mfg-inline";
+      var input = document.createElement("input");
+      input.className = "text-input"; input.placeholder = "Manufacturer name"; input.style.width = "200px";
+      var ok = document.createElement("button");
+      ok.className = "icon-btn primary";
+      ok.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>';
+      var cancel = document.createElement("button");
+      cancel.className = "icon-btn";
+      cancel.innerHTML = '✕';
+      function commit(){
+        if(input.value.trim()){
+          var m = { id: uid(), name: input.value.trim() };
+          state.manufacturers.push(m);
+          persistMfg();
+        }
+        state.addingMfg = false;
+        renderAddMfgRow(); renderStats(); renderSections();
+      }
+      ok.addEventListener("click", commit);
+      input.addEventListener("keydown", function(e){
+        if(e.key === "Enter") commit();
+        if(e.key === "Escape"){ state.addingMfg = false; renderAddMfgRow(); }
+      });
+      cancel.addEventListener("click", function(){ state.addingMfg = false; renderAddMfgRow(); });
+      wrap.appendChild(input); wrap.appendChild(ok); wrap.appendChild(cancel);
+      addMfgRow.appendChild(wrap);
+      input.focus();
+    }
+  }
+  document.getElementById("add-mfg-btn").addEventListener("click", function(){});
+
+  function removeManufacturer(id){
+    var inUse = claimsFor(id).length > 0;
+    if(inUse && !confirm("This manufacturer has logged parts. Remove it anyway? Existing entries keep the manufacturer's name on file.")) return;
+    state.manufacturers = state.manufacturers.filter(function(m){ return m.id !== id; });
+    if(state.openMfgId === id) state.openMfgId = null;
+    persistMfg();
+    renderStats(); renderSections();
+  }
+
+  // ---------- Photo (scoped to whichever inline form is open) ----------
+  function resizeImage(file, maxDim, quality){
+    return new Promise(function(resolve, reject){
+      var reader = new FileReader();
+      reader.onload = function(e){
+        var img = new Image();
+        img.onload = function(){
+          var w = img.width, h = img.height;
+          if(w > h && w > maxDim){ h = Math.round(h * maxDim / w); w = maxDim; }
+          else if(h > maxDim){ w = Math.round(w * maxDim / h); h = maxDim; }
+          var canvas = document.createElement("canvas");
+          canvas.width = w; canvas.height = h;
+          canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL("image/jpeg", quality));
+        };
+        img.onerror = reject;
+        img.src = e.target.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function exportCSV(mfgId, claims){
+    var esc2 = function(v){ return '"' + String(v==null?"":v).replace(/"/g,'""') + '"'; };
+    var rows = [["Date","Manufacturer","Part Number","Quantity","Reason","Has Photo"].map(esc2).join(",")];
+    claims.forEach(function(c){
+      rows.push([c.date, mfgName(mfgId), c.partNumber, c.quantity, c.reason, c.photo ? "Yes":"No"].map(esc2).join(","));
+    });
+    var blob = new Blob([rows.join("\n")], {type:"text/csv;charset=utf-8;"});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    var safe = mfgName(mfgId).replace(/[^a-z0-9]+/gi,"-").toLowerCase();
+    a.href = url;
+    a.download = safe + "-claims-" + new Date().toISOString().slice(0,10) + ".csv";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function renderTicket(c){
+    var wrap = document.createElement("div");
+    wrap.className = "ticket";
+
+    var holes = document.createElement("div");
+    holes.className = "ticket-holes";
+    for(var i=0;i<5;i++){ var h = document.createElement("div"); h.className = "ticket-hole"; holes.appendChild(h); }
+    wrap.appendChild(holes);
+
+    var body = document.createElement("div");
+    body.className = "ticket-body";
+
+    var mid = document.createElement("div");
+    mid.className = "ticket-mid";
+    if(c.photo){
+      var img = document.createElement("img");
+      img.src = c.photo;
+      mid.appendChild(img);
+    }
+    var info = document.createElement("div");
+    info.style.minWidth = "0"; info.style.flex = "1";
+
+    var top = document.createElement("div");
+    top.className = "ticket-top";
+    var partRow = document.createElement("div");
+    partRow.style.display = "flex"; partRow.style.alignItems = "baseline";
+    var partSpan = document.createElement("span");
+    partSpan.className = "ticket-part"; partSpan.textContent = c.partNumber;
+    var qtySpan = document.createElement("span");
+    qtySpan.className = "ticket-qty"; qtySpan.textContent = "× " + c.quantity;
+    partRow.appendChild(partSpan); partRow.appendChild(qtySpan);
+    var del = document.createElement("button");
+    del.className = "ticket-del";
+    del.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
+    del.addEventListener("click", function(){
+      if(confirm("Delete this part?")){
+        state.claims = state.claims.filter(function(x){ return x.id !== c.id; });
+        persistClaims(); renderStats(); renderSections();
+      }
+    });
+    top.appendChild(partRow); top.appendChild(del);
+    info.appendChild(top);
+
+    var tags = document.createElement("div");
+    tags.className = "ticket-tags";
+    var reasonTag = document.createElement("span");
+    reasonTag.className = "ticket-tag"; reasonTag.textContent = c.reason;
+    var dateTag = document.createElement("span");
+    dateTag.className = "ticket-date"; dateTag.textContent = c.date;
+    tags.appendChild(reasonTag); tags.appendChild(dateTag);
+    info.appendChild(tags);
+
+    mid.appendChild(info);
+    body.appendChild(mid);
+    wrap.appendChild(body);
+    return wrap;
+  }
+
+  function renderInlineForm(mfgId){
+    var box = document.createElement("div");
+    box.className = "inline-form";
+
+    var partField = document.createElement("div"); partField.className = "field";
+    partField.innerHTML = '<label class="field-label">Part Number</label>';
+    var partInput = document.createElement("input");
+    partInput.className = "text-input mono"; partInput.placeholder = "e.g. 0261230123";
+    partField.appendChild(partInput);
+
+    var qtyField = document.createElement("div"); qtyField.className = "field";
+    qtyField.innerHTML = '<label class="field-label">Quantity</label>';
+    var qtyInput = document.createElement("input");
+    qtyInput.type = "number"; qtyInput.min = "1"; qtyInput.step = "1"; qtyInput.value = "1";
+    qtyInput.className = "text-input mono";
+    qtyField.appendChild(qtyInput);
+
+    var reasonField = document.createElement("div"); reasonField.className = "field";
+    reasonField.innerHTML = '<label class="field-label">Reason for return</label>';
+    var reasonSel = document.createElement("select");
+    reasonSel.className = "text-input";
+    REASONS.forEach(function(r){ var o = document.createElement("option"); o.value = r; o.textContent = r; reasonSel.appendChild(o); });
+    var customInput = document.createElement("input");
+    customInput.className = "text-input hidden"; customInput.placeholder = "Describe reason"; customInput.style.marginTop = "8px";
+    reasonSel.addEventListener("change", function(){ customInput.classList.toggle("hidden", reasonSel.value !== "Other"); });
+    reasonField.appendChild(reasonSel); reasonField.appendChild(customInput);
+
+    var photoField = document.createElement("div"); photoField.className = "field";
+    photoField.innerHTML = '<label class="field-label">Photo (optional)</label>';
+    var photoArea = document.createElement("div");
+    photoField.appendChild(photoArea);
+
+    function renderPhotoArea(){
+      photoArea.innerHTML = "";
+      if(state.formPhoto){
+        var pw = document.createElement("div"); pw.className = "photo-thumb";
+        var img = document.createElement("img"); img.src = state.formPhoto;
+        var rm = document.createElement("button"); rm.className = "photo-remove"; rm.innerHTML = "✕";
+        rm.addEventListener("click", function(){ state.formPhoto = null; renderPhotoArea(); });
+        pw.appendChild(img); pw.appendChild(rm);
+        photoArea.appendChild(pw);
+      } else {
+        var btn = document.createElement("button");
+        btn.className = "btn-dashed";
+        btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg> Attach photo';
+        var input = document.createElement("input");
+        input.type = "file"; input.accept = "image/*"; input.className = "hidden";
+        input.addEventListener("change", function(e){
+          var file = e.target.files && e.target.files[0];
+          if(!file) return;
+          resizeImage(file, 700, 0.72).then(function(dataUrl){ state.formPhoto = dataUrl; renderPhotoArea(); });
+        });
+        btn.addEventListener("click", function(){ input.click(); });
+        photoArea.appendChild(btn); photoArea.appendChild(input);
+      }
+    }
+    renderPhotoArea();
+
+    var actions = document.createElement("div"); actions.className = "inline-form-actions";
+    var cancelBtn = document.createElement("button");
+    cancelBtn.className = "btn-cancel"; cancelBtn.textContent = "Cancel";
+    cancelBtn.addEventListener("click", function(){ state.openMfgId = null; state.formPhoto = null; renderSections(); });
+    var addBtn = document.createElement("button");
+    addBtn.className = "btn-add-part";
+    addBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add part';
+
+    function updateAddState(){
+      var qty = parseInt(qtyInput.value, 10);
+      addBtn.disabled = !(partInput.value.trim() && qty > 0);
+    }
+    partInput.addEventListener("input", updateAddState);
+    qtyInput.addEventListener("input", updateAddState);
+    updateAddState();
+
+    addBtn.addEventListener("click", function(){
+      var qty = parseInt(qtyInput.value, 10);
+      if(!partInput.value.trim() || !(qty > 0)) return;
+      var reason = reasonSel.value === "Other" ? (customInput.value.trim() || "Other") : reasonSel.value;
+      var claim = {
+        id: uid(), manufacturerId: mfgId, partNumber: partInput.value.trim(),
+        quantity: qty, reason: reason, photo: state.formPhoto, date: new Date().toISOString().slice(0,10)
+      };
+      state.claims.unshift(claim);
+      persistClaims();
+      state.openMfgId = null; state.formPhoto = null;
+      renderStats(); renderSections();
+    });
+
+    actions.appendChild(cancelBtn); actions.appendChild(addBtn);
+
+    box.appendChild(partField); box.appendChild(qtyField); box.appendChild(reasonField); box.appendChild(photoField); box.appendChild(actions);
+
+    setTimeout(function(){ partInput.focus(); }, 0);
+    return box;
+  }
+
+  function renderSections(){
+    var container = document.getElementById("mfg-sections");
+    container.innerHTML = "";
+    document.getElementById("empty-state-global").classList.toggle("hidden", state.manufacturers.length > 0);
+
+    state.manufacturers.forEach(function(m){
+      var section = document.createElement("div");
+      section.className = "mfg-section";
+
+      var header = document.createElement("div");
+      header.className = "mfg-header";
+      var nameGroup = document.createElement("div");
+      nameGroup.className = "mfg-name-group";
+      var nameEl = document.createElement("div");
+      nameEl.className = "mfg-name"; nameEl.textContent = m.name;
+      var countEl = document.createElement("div");
+      countEl.className = "mfg-count"; countEl.textContent = claimsFor(m.id).length;
+      nameGroup.appendChild(nameEl); nameGroup.appendChild(countEl);
+
+      var actions = document.createElement("div");
+      actions.className = "mfg-actions";
+
+      var parts = claimsFor(m.id);
+      if(parts.length){
+        var exportBtn = document.createElement("button");
+        exportBtn.className = "icon-btn";
+        exportBtn.title = "Export CSV";
+        exportBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
+        exportBtn.addEventListener("click", function(){ exportCSV(m.id, parts); });
+        actions.appendChild(exportBtn);
+      }
+
+      var removeBtn = document.createElement("button");
+      removeBtn.className = "icon-btn danger";
+      removeBtn.title = "Remove manufacturer";
+      removeBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
+      removeBtn.addEventListener("click", function(){ removeManufacturer(m.id); });
+      actions.appendChild(removeBtn);
+
+      var plusBtn = document.createElement("button");
+      plusBtn.className = "icon-btn primary";
+      plusBtn.title = "Add part";
+      plusBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+      plusBtn.addEventListener("click", function(){
+        state.openMfgId = state.openMfgId === m.id ? null : m.id;
+        state.formPhoto = null;
+        renderSections();
+      });
+      actions.appendChild(plusBtn);
+
+      header.appendChild(nameGroup); header.appendChild(actions);
+      section.appendChild(header);
+
+      if(state.openMfgId === m.id){
+        section.appendChild(renderInlineForm(m.id));
+      }
+
+      if(parts.length){
+        var grid = document.createElement("div");
+        grid.className = "log-grid";
+        parts.forEach(function(c){ grid.appendChild(renderTicket(c)); });
+        section.appendChild(grid);
+      } else if(state.openMfgId !== m.id){
+        var empty = document.createElement("div");
+        empty.className = "no-parts";
+        empty.textContent = "No parts logged yet for " + m.name + ".";
+        section.appendChild(empty);
+      }
+
+      container.appendChild(section);
+    });
+  }
+
+  // ---------- Init ----------
+  renderAddMfgRow();
+  renderStats();
+  renderSections();
+
+  // ---------- PWA install prompt ----------
+  var deferredPrompt = null;
+  var banner = document.getElementById("install-banner");
+  window.addEventListener("beforeinstallprompt", function(e){
+    e.preventDefault();
+    deferredPrompt = e;
+    if(!localStorage.getItem("prl_install_dismissed")) banner.classList.add("show");
+  });
+  document.getElementById("install-btn").addEventListener("click", function(){
+    banner.classList.remove("show");
+    if(deferredPrompt){ deferredPrompt.prompt(); deferredPrompt = null; }
+  });
+  document.getElementById("dismiss-btn").addEventListener("click", function(){
+    banner.classList.remove("show");
+    localStorage.setItem("prl_install_dismissed", "1");
+  });
+
+  // ---------- Service worker ----------
+  if("serviceWorker" in navigator){
+    window.addEventListener("load", function(){
+      navigator.serviceWorker.register("sw.js").catch(function(err){ console.warn("SW registration failed", err); });
+    });
+  }
+})();
+</script>
+</body>
+</html>
