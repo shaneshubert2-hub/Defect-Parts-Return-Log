@@ -2,10 +2,13 @@ const CACHE_NAME = "parts-return-log-v1";
 const APP_SHELL = [
   "./",
   "./index.html",
+  "./privacy.html",
   "./manifest.json",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
-  "./icons/icon-512-maskable.png"
+  "./icons/icon-192-maskable.png",
+  "./icons/icon-512-maskable.png",
+  "./icons/icon-180.png"
 ];
 
 self.addEventListener("install", (event) => {
@@ -22,15 +25,18 @@ self.addEventListener("activate", (event) => {
   );
 });
 
-// Cache-first for app shell, network-first fallback for everything else (e.g. Google Fonts)
+// Cache-first for app shell, network-first fallback for everything else
+// (Google Fonts, the ExcelJS export library) so they still work offline
+// once they've been fetched successfully at least once.
 self.addEventListener("fetch", (event) => {
   const req = event.request;
+  if (req.method !== "GET") return;
   event.respondWith(
     caches.match(req).then((cached) => {
       if (cached) return cached;
       return fetch(req)
         .then((res) => {
-          if (req.method === "GET" && res.ok && new URL(req.url).origin === location.origin) {
+          if (res.ok || res.type === "opaque") {
             const clone = res.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
           }

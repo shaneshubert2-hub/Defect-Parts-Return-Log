@@ -7,7 +7,7 @@
 <meta name="description" content="Log defective auto parts and export them for manufacturer credit." />
 <link rel="manifest" href="manifest.json" />
 <link rel="icon" href="icons/icon-192.png" />
-<link rel="apple-touch-icon" href="icons/icon-192.png" />
+<link rel="apple-touch-icon" href="icons/icon-180.png" />
 <meta name="theme-color" content="#3E4E5C" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -107,9 +107,17 @@
   .install-banner.show{display:flex;}
   .install-banner button.install-btn{background:var(--credit);color:var(--white);padding:6px 12px;border-radius:6px;font-weight:600;font-size:12px;white-space:nowrap;}
   .install-banner button.dismiss{color:var(--credit);font-size:16px;line-height:1;padding:0 4px;}
+  @keyframes spin{ from{transform:rotate(0deg);} to{transform:rotate(360deg);} }
+
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(0);background:var(--ink);color:var(--white);
+    padding:12px 18px;border-radius:8px;font-size:13px;font-weight:500;box-shadow:0 4px 16px rgba(0,0,0,.2);
+    z-index:1000;opacity:0;pointer-events:none;transition:opacity .25s ease, transform .25s ease;max-width:90vw;text-align:center;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px);}
 </style>
 </head>
 <body>
+
+<div id="toast" class="toast"></div>
 
 <div id="install-banner" class="install-banner">
   <span>Install this app for one-tap access — works offline too.</span>
@@ -182,6 +190,15 @@
   function uid(){ return "id-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2,9); }
   function esc(v){ var d = document.createElement("div"); d.textContent = v == null ? "" : String(v); return d.innerHTML; }
 
+  var toastTimer = null;
+  function showToast(msg){
+    var el = document.getElementById("toast");
+    el.textContent = msg;
+    el.classList.add("show");
+    if(toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ el.classList.remove("show"); }, 3200);
+  }
+
   var state = {
     manufacturers: loadJSON(STORE_KEY_MFG, []),
     claims: loadJSON(STORE_KEY_CLAIMS, []),
@@ -249,8 +266,6 @@
       input.focus();
     }
   }
-  document.getElementById("add-mfg-btn").addEventListener("click", function(){});
-
   function removeManufacturer(id){
     var inUse = claimsFor(id).length > 0;
     if(inUse && !confirm("This manufacturer has logged parts. Remove it anyway? Existing entries keep the manufacturer's name on file.")) return;
@@ -283,20 +298,97 @@
     });
   }
 
-  function exportCSV(mfgId, claims){
-    var esc2 = function(v){ return '"' + String(v==null?"":v).replace(/"/g,'""') + '"'; };
-    var rows = [["Date","Manufacturer","Part Number","Quantity","Reason","Has Photo"].map(esc2).join(",")];
-    claims.forEach(function(c){
-      rows.push([c.date, mfgName(mfgId), c.partNumber, c.quantity, c.reason, c.photo ? "Yes":"No"].map(esc2).join(","));
+  var EXCELJS_CDN = "https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js";
+  var exceljsLoadPromise = null;
+  function loadExcelJS(){
+    if(window.ExcelJS) return Promise.resolve();
+    if(exceljsLoadPromise) return exceljsLoadPromise;
+    exceljsLoadPromise = new Promise(function(resolve, reject){
+      var s = document.createElement("script");
+      s.src = EXCELJS_CDN;
+      s.onload = function(){ resolve(); };
+      s.onerror = function(){ exceljsLoadPromise = null; reject(new Error("offline")); };
+      document.head.appendChild(s);
     });
-    var blob = new Blob([rows.join("\n")], {type:"text/csv;charset=utf-8;"});
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement("a");
-    var safe = mfgName(mfgId).replace(/[^a-z0-9]+/gi,"-").toLowerCase();
-    a.href = url;
-    a.download = safe + "-claims-" + new Date().toISOString().slice(0,10) + ".csv";
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    return exceljsLoadPromise;
+  }
+
+  function getImageDims(dataUrl){
+    return new Promise(function(resolve){
+      var img = new Image();
+      img.onload = function(){ resolve({ width: img.naturalWidth, height: img.naturalHeight }); };
+      img.onerror = function(){ resolve({ width: 80, height: 80 }); };
+      img.src = dataUrl;
+    });
+  }
+
+  function safeSheetName(name){
+    var cleaned = String(name).replace(/[:\\\/\?\*\[\]]/g, "").trim();
+    return (cleaned || "Claims").slice(0, 31);
+  }
+
+  function exportExcel(mfgId, claims, btn){
+    var exportedIds = claims.map(function(c){ return c.id; });
+    var originalHTML = btn.innerHTML;
+    btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 0.8s linear infinite;"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>';
+    btn.disabled = true;
+
+    loadExcelJS().then(function(){
+      var workbook = new window.ExcelJS.Workbook();
+      var sheet = workbook.addWorksheet(safeSheetName(mfgName(mfgId)));
+      sheet.columns = [
+        { header: "Date", key: "date", width: 12 },
+        { header: "Part Number", key: "part", width: 18 },
+        { header: "Quantity", key: "qty", width: 10 },
+        { header: "Reason", key: "reason", width: 22 },
+        { header: "Photo", key: "photo", width: 16 }
+      ];
+      sheet.getRow(1).font = { bold: true };
+
+      var maxBox = 90;
+      var imagePromises = [];
+
+      claims.forEach(function(c, i){
+        var rowIndex = i + 2; // header occupies row 1
+        sheet.addRow({ date: c.date, part: c.partNumber, qty: c.quantity, reason: c.reason, photo: "" });
+
+        if(c.photo){
+          var p = getImageDims(c.photo).then(function(dims){
+            var scale = Math.min(maxBox / dims.width, maxBox / dims.height, 1);
+            var w = Math.round(dims.width * scale);
+            var h = Math.round(dims.height * scale);
+            var base64 = c.photo.split(",")[1];
+            var imgId = workbook.addImage({ base64: base64, extension: "jpeg" });
+            sheet.addImage(imgId, { tl: { col: 4, row: rowIndex - 1 }, ext: { width: w, height: h } });
+            sheet.getRow(rowIndex).height = Math.max(20, h * 0.75 + 6);
+          });
+          imagePromises.push(p);
+        }
+      });
+
+      return Promise.all(imagePromises).then(function(){ return workbook.xlsx.writeBuffer(); });
+    }).then(function(buffer){
+      var blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      var safe = mfgName(mfgId).replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+      a.href = url;
+      a.download = safe + "-claims-" + new Date().toISOString().slice(0,10) + ".xlsx";
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      var exportedName = mfgName(mfgId);
+      state.claims = state.claims.filter(function(c){ return exportedIds.indexOf(c.id) === -1; });
+      persistClaims();
+      renderStats();
+      renderSections();
+      showToast(exportedIds.length + (exportedIds.length === 1 ? " part" : " parts") + " exported and cleared from " + exportedName + ".");
+    }).catch(function(err){
+      console.error(err);
+      alert("Couldn't export to Excel — this needs an internet connection the first time you use it (to load the export library). Please check your connection and try again.");
+      btn.innerHTML = originalHTML;
+      btn.disabled = false;
+    });
   }
 
   function renderTicket(c){
@@ -479,9 +571,9 @@
       if(parts.length){
         var exportBtn = document.createElement("button");
         exportBtn.className = "icon-btn";
-        exportBtn.title = "Export CSV";
+        exportBtn.title = "Export to Excel";
         exportBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
-        exportBtn.addEventListener("click", function(){ exportCSV(m.id, parts); });
+        exportBtn.addEventListener("click", function(){ exportExcel(m.id, parts, exportBtn); });
         actions.appendChild(exportBtn);
       }
 
