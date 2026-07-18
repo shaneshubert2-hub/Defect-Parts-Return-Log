@@ -1,4 +1,4 @@
-const CACHE_NAME = "parts-return-log-v1";
+const CACHE_NAME = "parts-return-log-v2";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -25,12 +25,32 @@ self.addEventListener("activate", (event) => {
   );
 });
 
-// Cache-first for app shell, network-first fallback for everything else
-// (Google Fonts, the ExcelJS export library) so they still work offline
-// once they've been fetched successfully at least once.
+// Navigation requests (the app page itself) go network-first: always try to
+// fetch the latest index.html when online, so updates show up immediately
+// on next load without a manual hard refresh. Falls back to the cached copy
+// only when offline.
+//
+// Everything else (icons, manifest, fonts, the ExcelJS library) stays
+// cache-first for speed and full offline support, since those rarely change.
 self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET") return;
+
+  const isNavigation = req.mode === "navigate" || (req.destination === "document");
+
+  if (isNavigation) {
+    event.respondWith(
+      fetch(req)
+        .then((res) => {
+          const clone = res.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
+          return res;
+        })
+        .catch(() => caches.match(req).then((cached) => cached || caches.match("./index.html")))
+    );
+    return;
+  }
+
   event.respondWith(
     caches.match(req).then((cached) => {
       if (cached) return cached;
