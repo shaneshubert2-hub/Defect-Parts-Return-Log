@@ -234,6 +234,13 @@
     addingMfg: false
   };
 
+  function sortManufacturers(){
+    state.manufacturers.sort(function(a, b){
+      return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+    });
+  }
+  sortManufacturers(); // in case previously-saved data wasn't alphabetical
+
   function persistMfg(){ saveJSON(STORE_KEY_MFG, state.manufacturers); }
   function persistClaims(){ saveJSON(STORE_KEY_CLAIMS, state.claims); }
 
@@ -277,6 +284,7 @@
         if(input.value.trim()){
           var m = { id: uid(), name: input.value.trim() };
           state.manufacturers.push(m);
+          sortManufacturers();
           persistMfg();
         }
         state.addingMfg = false;
